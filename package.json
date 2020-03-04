@@ -1,6 +1,6 @@
 {
-  "name": "echarts",
-  "version": "4.7.0",
+  "name": "@shimo/echarts",
+  "version": "4.7.0-patch.3",
   "description": "A powerful charting and visualization library for browser",
   "license": "Apache-2.0",
   "keywords": [
@@ -10,7 +10,7 @@
   "homepage": "http://echarts.apache.org",
   "repository": {
     "type": "git",
-    "url": "https://github.com/apache/incubator-echarts.git"
+    "url": "https://github.com/FallenMax/incubator-echarts"
   },
   "scripts": {
     "release": "node build/build.js --release",

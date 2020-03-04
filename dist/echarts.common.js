@@ -1743,8 +1743,11 @@ function buildTransformer(src, dest) {
 }
 
 var EVENT_SAVED_PROP = '___zrEVENTSAVED';
+<<<<<<< HEAD
 var _calcOut$1 = [];
 
+=======
+>>>>>>> 4.6.0-patch.3
 /**
  * Transform "local coord" from `elFrom` to `elTarget`.
  * "local coord": the coord based on the input `el`. The origin point is at
@@ -1778,10 +1781,14 @@ var _calcOut$1 = [];
  * @param {number} inY
  * @return {boolean} Whether transform successfully.
  */
+<<<<<<< HEAD
 function transformLocalCoord(out, elFrom, elTarget, inX, inY) {
     return transformCoordWithViewport(_calcOut$1, elFrom, inX, inY, true)
         && transformCoordWithViewport(out, elTarget, _calcOut$1[0], _calcOut$1[1]);
 }
+=======
+
+>>>>>>> 4.6.0-patch.3
 
 /**
  * Transform between a "viewport coord" and a "local coord".
@@ -41487,7 +41494,22 @@ var builders = {
         var nameLocation = axisModel.get('nameLocation');
         var nameDirection = opt.nameDirection;
         var textStyleModel = axisModel.getModel('nameTextStyle');
-        var gap = axisModel.get('nameGap') || 0;
+        // label + gap
+        var distanceToAxis = calcDistanceToAxis();
+        function calcDistanceToAxis() {
+          var axis = axisModel.axis;
+          if (axis.grid.model.get('containLabel') && !axis.model.get('axisLabel.inside')) {
+            var labelUnionRect = estimateLabelUnionRect(axis);
+            if (!labelUnionRect) {
+              return 0;
+            }
+            var dim = axis.isHorizontal() ? 'height' : 'width';
+            var margin = axisModel.get('axisLabel.margin');
+            return labelUnionRect[dim] + margin;
+          }
+          return 0;
+        }
+        var gap = (axisModel.get('nameGap') || 0) + distanceToAxis;
 
         var extent = this.axisModel.axis.getExtent();
         var gapSignal = extent[0] > extent[1] ? -1 : 1;
@@ -63584,7 +63606,7 @@ ClippathManager.prototype.updateDom = function (
             // New <clipPath>
             id = 'zr' + this._zrId + '-clip-' + this.nextId;
             ++this.nextId;
-            clipPathEl = this.createElement('clipPath');
+            clipPathEl = this.createElement('clippath');
             clipPathEl.setAttribute('id', id);
             defs.appendChild(clipPathEl);
 
@@ -63954,11 +63976,16 @@ var SVGPainter = function (root, storage, opts, zrId) {
     this.storage = storage;
     this._opts = opts = extend({}, opts || {});
 
-    var svgRoot = createElement('svg');
-    svgRoot.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    svgRoot.setAttribute('version', '1.1');
-    svgRoot.setAttribute('baseProfile', 'full');
-    svgRoot.style.cssText = 'user-select:none;position:absolute;left:0;top:0;';
+    var svgDom = createElement('svg');
+    svgDom.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svgDom.setAttribute('version', '1.1');
+    svgDom.setAttribute('baseProfile', 'full');
+    svgDom.style.cssText = 'user-select:none;position:absolute;left:0;top:0;';
+
+    var bgRoot = createElement('g');
+    svgDom.appendChild(bgRoot);
+    var svgRoot = createElement('g');
+    svgDom.appendChild(svgRoot);
 
     this.gradientManager = new GradientManager(zrId, svgRoot);
     this.clipPathManager = new ClippathManager(zrId, svgRoot);
@@ -63967,11 +63994,13 @@ var SVGPainter = function (root, storage, opts, zrId) {
     var viewport = document.createElement('div');
     viewport.style.cssText = 'overflow:hidden;position:relative';
 
+    this._svgDom = svgDom;
     this._svgRoot = svgRoot;
+    this._backgroundRoot = bgRoot;
     this._viewport = viewport;
 
     root.appendChild(viewport);
-    viewport.appendChild(svgRoot);
+    viewport.appendChild(svgDom);
 
     this.resize(opts.width, opts.height);
 
@@ -63988,6 +64017,14 @@ SVGPainter.prototype = {
 
     getViewportRoot: function () {
         return this._viewport;
+    },
+
+    getSvgDom: function () {
+        return this._svgDom;
+    },
+
+    getSvgRoot: function () {
+        return this._svgRoot;
     },
 
     getViewportRootOffset: function () {
@@ -64009,7 +64046,21 @@ SVGPainter.prototype = {
 
     setBackgroundColor: function (backgroundColor) {
         // TODO gradient
-        this._viewport.style.background = backgroundColor;
+        // Insert a bg rect instead of setting background to viewport.
+        // Otherwise, the exported SVG don't have background.
+        if (this._backgroundRoot && this._backgroundNode) {
+            this._backgroundRoot.removeChild(this._backgroundNode);
+        }
+
+        var bgNode = createElement('rect');
+        bgNode.setAttribute('width', this.getWidth());
+        bgNode.setAttribute('height', this.getHeight());
+        bgNode.setAttribute('x', 0);
+        bgNode.setAttribute('y', 0);
+        bgNode.setAttribute('id', 0);
+        bgNode.style.fill = backgroundColor;
+        this._backgroundRoot.appendChild(bgNode);
+        this._backgroundNode = bgNode;
     },
 
     _paintList: function (list) {
@@ -64139,8 +64190,8 @@ SVGPainter.prototype = {
     },
 
     _getDefs: function (isForceCreating) {
-        var svgRoot = this._svgRoot;
-        var defs = this._svgRoot.getElementsByTagName('defs');
+        var svgRoot = this._svgDom;
+        var defs = svgRoot.getElementsByTagName('defs');
         if (defs.length === 0) {
             // Not exist
             if (isForceCreating) {
@@ -64197,10 +64248,15 @@ SVGPainter.prototype = {
             viewportStyle.width = width + 'px';
             viewportStyle.height = height + 'px';
 
-            var svgRoot = this._svgRoot;
+            var svgRoot = this._svgDom;
             // Set width by 'svgRoot.width = width' is invalid
             svgRoot.setAttribute('width', width);
             svgRoot.setAttribute('height', height);
+        }
+
+        if (this._backgroundNode) {
+            this._backgroundNode.setAttribute('width', width);
+            this._backgroundNode.setAttribute('height', height);
         }
     },
 
@@ -64243,10 +64299,13 @@ SVGPainter.prototype = {
     dispose: function () {
         this.root.innerHTML = '';
 
-        this._svgRoot =
-            this._viewport =
-            this.storage =
-            null;
+        this._svgRoot
+            = this._backgroundRoot
+            = this._svgDom
+            = this._backgroundNode
+            = this._viewport
+            = this.storage
+            = null;
     },
 
     clear: function () {
@@ -64255,9 +64314,9 @@ SVGPainter.prototype = {
         }
     },
 
-    pathToDataUrl: function () {
+    toDataURL: function () {
         this.refresh();
-        var html = this._svgRoot.outerHTML;
+        var html = encodeURIComponent(this._svgDom.outerHTML.replace(/></g, '>\n\r<'));
         return 'data:image/svg+xml;charset=UTF-8,' + html;
     }
 };
@@ -64273,7 +64332,7 @@ function createMethodNotSupport$1(method) {
 each$1([
     'getLayer', 'insertLayer', 'eachLayer', 'eachBuiltinLayer',
     'eachOtherLayer', 'getLayers', 'modLayer', 'delLayer', 'clearLayer',
-    'toDataURL', 'pathToImage'
+    'pathToImage'
 ], function (name) {
     SVGPainter.prototype[name] = createMethodNotSupport$1(name);
 });
